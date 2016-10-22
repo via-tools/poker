@@ -1,18 +1,21 @@
 function (ctx, a) {
   const
     $ = #s.scripts.lib()
-    , _ch = "BACKROOM"
     , _a = "backroom"
     , _u = ctx.caller
     , _cs = ctx.calling_script
+    , _suits = "@ # % &".split(" ")
+    , _ranks = "2 3 4 5 6 7 8 9 A B C D E F".split(" ")
     , _init_state = {
         sid: "state"
         , status: "idle"
-        , current_player_index: 0
-        , order: []
-        , deck: []
-        , board: []
         , pot: 0
+        , game_order: []
+        , round_order: []
+        , deck: []
+        , bets: {}
+        , board: []
+        , min_bet: 0
       }
     , _init_player = {
         sid: "player"
@@ -42,24 +45,15 @@ function (ctx, a) {
         if (! $.is_def(obj) ) return true;
         return Object.keys(obj).length === 0;
       }
-    , broadcast(msg) {
-        #s.chats.create({name:_ch});
-        #s.chats.send({channel:_ch, msg});
-      }
-    , alert_current_player(player) {
-        #s.chats.send({channel:_ch, msg:` @${player.uid}'s turn `});
+    , repeat(times, fn) {
+          for(var i = 0; i < times; i++) fn();
       }
     , get_deck() {
         // create and shuffle deck
         let deck = []
-          , suits = "@ # % &".split(" ")
-          , ranks = "2 3 4 5 6 7 8 9 A B C D E F".split(" ")
-          , temp = suits.map((suit)=>ranks.map((rank)=>{ return {rank, suit} }))
+          , temp = _suits.map((suit)=>_ranks.map((rank)=>{ return {rank, suit} }))
         temp.forEach((e) => deck = deck.concat(e));
         return _shuffle(deck);
-      }
-    , view_hand (hand) {
-        return `${hand[0].rank}${hand[0].suit} ${hand[1].rank}${hand[1].suit}`
       }
     , db: {
         erase_and_reset () {
@@ -95,10 +89,13 @@ function (ctx, a) {
             return #db.r( {sid:"player", uid:_u} )
           }
         , get_view() {
-            return #db.f( { sid:"state" }, {_id:0, board:1, pot:1, current_player_index:1, order:1, status:1 } ).first()
+            return #db.f( { sid:"state" }, { _id:0, sid:0, deck:0 } ).first();
           }
         , deal_hand(uid, hand) {
             return #db.u( { sid:"player", uid }, { $set: { hand } } )
+          }
+        , set_balance( balance ) {
+            return #db.u( { sid:"player", uid:_u }, { $set: { balance } } )
           }
       }
   }
